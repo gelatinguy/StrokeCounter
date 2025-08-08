@@ -25,6 +25,15 @@ IniRead, CounterBackColor, %IniFile%, Settings, CounterBackColor, White
 IniRead, EnableTransparency, %IniFile%, Settings, EnableTransparency, 0
 ; New setting to enable or disable the ToolWindow style for OBS compatibility.
 IniRead, EnableOBSCapture, %IniFile%, Settings, EnableOBSCapture, 1
+; New settings for the sound alert.
+IniRead, AlertSound, %IniFile%, Settings, AlertSound, alert.wav
+IniRead, EnableSound, %IniFile%, Settings, EnableSound, 0
+; New setting for the image alert filename.
+IniRead, AlertImage, %IniFile%, Settings, AlertImage, stretch.png
+; New setting for the image alert checkbox.
+IniRead, EnableImageCheckbox, %IniFile%, Settings, EnableImageCheckbox, 1
+; New setting for the message box transparency checkbox.
+IniRead, EnableMsgBoxTransparency, %IniFile%, Settings, EnableMsgBoxTransparency, 0
 
 ; Initialize the global stroke counter variable.
 StrokeCount := 0
@@ -35,8 +44,11 @@ TrayTipChecked := (EnableTrayTip = 1) ? "Checked" : ""
 AlwaysOnTopChecked := (EnableAlwaysOnTop = 1) ? "Checked" : ""
 CounterChecked := (EnableCounter = 1) ? "Checked" : ""
 TransparencyChecked := (EnableTransparency = 1) ? "Checked" : ""
-; Convert the new checkbox value for the GUI.
 OBSCaptureChecked := (EnableOBSCapture = 1) ? "Checked" : ""
+SoundChecked := (EnableSound = 1) ? "Checked" : ""
+; Use the new variable for the image checkbox state.
+ImageChecked := (EnableImageCheckbox = 1) ? "Checked" : ""
+MsgBoxTransparencyChecked := (EnableMsgBoxTransparency = 1) ? "Checked" : ""
 
 ; --- MAIN SETTINGS GUI SETUP (GUI 1) ---
 ; Create the main settings window.
@@ -51,16 +63,30 @@ Gui, Add, Text, y+10, Custom Message:
 ; The Edit field for the message now defaults to the value read from the INI file.
 Gui, Add, Edit, vMyMessage w300, %MyMessage%
 
+; New controls for the sound alert. The `gToggleSoundFile` label will enable/disable the text field.
+Gui, Add, Checkbox, y+10 vEnableSound gToggleSoundFile %SoundChecked%, Play a Sound
+Gui, Add, Text, x30 y+0, WAV File:
+Gui, Add, Edit, vAlertSound x+5 w150, %AlertSound%
+
+; New controls for the message box. The `gToggleMsgBox` label will enable/disable the fields.
+Gui, Add, Checkbox, x10 y+10 vEnableMsgBox gToggleMsgBox %MsgBoxChecked%, Pop-up Message Box
+; Use the new variable for the image checkbox.
+Gui, Add, Checkbox, x30 vEnableImageCheckbox gToggleImageFile %ImageChecked%, Show an Image
+Gui, Add, Text, x30 y+5, PNG File:
+; New input field for the image filename. This is conditionally enabled.
+Gui, Add, Edit, vAlertImage x+5 w150, %AlertImage%
+; New checkbox to make the message box transparent. The 'gToggleMsgBoxTransparency' label will handle enabling/disabling of the transparency.
+Gui, Add, Checkbox, x+5 vEnableMsgBoxTransparency gToggleMsgBoxTransparency %MsgBoxTransparencyChecked%, Transparent Background
+
 ; Add some vertical space before the checkbox line using the 'y+10' option.
-Gui, Add, Checkbox, y+10 vEnableMsgBox %MsgBoxChecked%, Pop-up Message Box
-Gui, Add, Checkbox, vEnableTrayTip %TrayTipChecked%, Pop-up Toast Notification
+Gui, Add, Checkbox, x10 y+10 vEnableTrayTip %TrayTipChecked%, Pop-up Toast Notification
 ; New checkbox to enable/disable the live counter window. The 'g' option links it to a label.
-Gui, Add, Checkbox, vEnableCounter gToggleAllSettings %CounterChecked%, Live Stroke Counter Window
+Gui, Add, Checkbox, y+10 vEnableCounter gToggleAllSettings %CounterChecked%, Show Live Stroke Counter
 ; Add the "Always On Top" checkbox with an indentation.
 Gui, Add, Checkbox, x30 y+10 vEnableAlwaysOnTop %AlwaysOnTopChecked%, Always On Top
 ; Add the new "Enable OBS Capture Mode" checkbox.
 ; When enabled, this removes the ToolWindow style for better OBS compatibility.
-Gui, Add, Checkbox, x30 y+10 vEnableOBSCapture %OBSCaptureChecked%, OBS Window Capture Compatibility
+Gui, Add, Checkbox, x30 y+10 vEnableOBSCapture %OBSCaptureChecked%, Enable OBS Capture
 
 ; Add controls for customizing the live counter's font, size, and text.
 ; These will be placed on a new line and aligned to the left.
@@ -71,14 +97,12 @@ Gui, Add, Text, y+10, Live Counter Text:
 Gui, Add, Edit, vCounterText w100, %CounterText%
 
 Gui, Add, Text, y+10, Live Counter Font:
-Gui, Add, Text, x+104, Font Size:
 ; Font selection uses a ComboBox, which allows typing and selecting from the list.
-Gui, Add, ComboBox, x30 vCounterFont w170, Arial|Calibri|Comic Sans MS|Segoe UI|Tahoma|Verdana|Consolas|Courier New|Times New Roman|Impact
+Gui, Add, ComboBox, x30 vCounterFont w170, Arial|Calibri|Comic Sans MS|Papyrus|Segoe UI|Tahoma|Verdana|Consolas|Courier New|Times New Roman|Impact
 
 ; This new line sets the text field of the ComboBox to the value loaded from the INI file.
 GuiControl, Text, CounterFont, %CounterFont%
 
-;Gui, Add, Text, y+10, Live Counter Font Size:
 Gui, Add, Edit, x+20 vCounterSize w50, %CounterSize%
 
 ; Add new controls for font and background color.
@@ -91,6 +115,7 @@ Gui, Add, Edit, vCounterBackColor w100, %CounterBackColor%
 ; This setting uses WinSet, TransColor to create transparency for OBS's Color Key filter.
 Gui, Add, Checkbox, x+20 vEnableTransparency %TransparencyChecked%, Transparent Background
 
+; --- Initial GUI state fixes ---
 ; Conditionally disable the controls if the live counter is not enabled at script start.
 if (EnableCounter = 0)
 {
@@ -105,14 +130,36 @@ if (EnableCounter = 0)
     GuiControl, Disable, EnableTransparency
 }
 
+; Conditionally disable the sound file field if the sound checkbox is not checked at script start.
+if (EnableSound = 0)
+{
+    GuiControl, Disable, AlertSound
+}
+
+; Conditionally disable the image file field if the image checkbox is not checked at script start.
+; This is the fix for the reported bug.
+if (EnableImageCheckbox = 0)
+{
+    GuiControl, Disable, AlertImage
+}
+
+; Conditionally disable the transparent checkbox and the image checkbox
+; if the message box is not checked.
+if (EnableMsgBox = 0)
+{
+    GuiControl, Disable, EnableImageCheckbox
+    GuiControl, Disable, EnableMsgBoxTransparency
+}
+
+; --- Buttons and script info ---
 ; Create a button to save the settings and start the script.
 ; The 'g' option points to the corrected label name 'ButtonSaveSettings'.
 ; The 'x10' option here forces the button to the left side of the window, and 'y+14' moves it to a new line.
-Gui, Add, Button, x10 y+24 Default gButtonSaveSettings, Save Settings
+Gui, Add, Button, x10 y+14 Default gButtonSaveSettings, Save Settings
 
 ; Set a smaller font for the copyright message.
 Gui, Font, s7
-Gui, Add, Text, y+6, ©2025 gelatinguy and DTScribe
+Gui, Add, Text, y+10, ©2025 gelatinguy and DTScribe
 
 ; Reset the font to the default size for any other controls that might be added later.
 Gui, Font, s10
@@ -123,7 +170,7 @@ Gui, Show, , Stroke Counter Settings
 ; --- LIVE COUNTER WINDOW SETUP (GUI 2) ---
 ; Create a second GUI for the live stroke counter.
 Gui, 2: Default
-; We check if the color string starts with a '#' and remove it if it does.
+; We now check if the color string starts with a '#' and remove it if it does.
 if (SubStr(CounterFontColor, 1, 1) = "#")
 {
     CounterFontColor := SubStr(CounterFontColor, 2)
@@ -184,6 +231,54 @@ Gui, 2: Hide
 ; Return prevents the main script from running until the GUI is closed.
 return
 
+; This is the label that runs when the "Play a Sound" checkbox is clicked.
+ToggleSoundFile:
+    GuiControlGet, EnableSound
+    if EnableSound
+    {
+        GuiControl, Enable, AlertSound
+    }
+    else
+    {
+        GuiControl, Disable, AlertSound
+    }
+return
+
+; This is the label that runs when the "Pop-up Message Box" checkbox is clicked.
+; It now only toggles the visibility of the "Show an Image" checkbox.
+ToggleMsgBox:
+    GuiControlGet, EnableMsgBox
+    if EnableMsgBox
+    {
+        GuiControl, Enable, EnableImageCheckbox
+        GuiControl, Enable, EnableMsgBoxTransparency
+    }
+    else
+    {
+        GuiControl, Disable, EnableImageCheckbox
+        GuiControl, Disable, EnableMsgBoxTransparency
+    }
+return
+
+; This is the label that runs when the "Show an Image" checkbox is clicked.
+; It now only toggles the PNG file field.
+ToggleImageFile:
+    GuiControlGet, EnableImageCheckbox
+    if EnableImageCheckbox
+    {
+        GuiControl, Enable, AlertImage
+    }
+    else
+    {
+        GuiControl, Disable, AlertImage
+    }
+return
+
+; This is the label that runs when the "Transparent Background" checkbox is clicked.
+ToggleMsgBoxTransparency:
+    ; This checkbox doesn't disable any other controls, but we need the label to be here.
+return
+
 ; This is the label that runs when the "Show Live Stroke Counter" checkbox is clicked.
 ToggleAllSettings:
 GuiControlGet, EnableCounter
@@ -228,26 +323,15 @@ IniWrite, %EnableAlwaysOnTop%, %IniFile%, Settings, EnableAlwaysOnTop
 IniWrite, %EnableCounter%, %IniFile%, Settings, EnableCounter
 ; Write the new OBS capture setting.
 IniWrite, %EnableOBSCapture%, %IniFile%, Settings, EnableOBSCapture
-
-; We check if the color string starts with a '#' and remove it if it does.
-if (SubStr(CounterFontColor, 1, 1) = "#")
-{
-    CounterFontColor := SubStr(CounterFontColor, 2)
-}
-if (SubStr(CounterBackColor, 1, 1) = "#")
-{
-    CounterBackColor := SubStr(CounterBackColor, 2)
-}
-
-; Write the new counter settings to the INI file.
-IniWrite, %CounterText%, %IniFile%, Settings, CounterText
-IniWrite, %CounterFont%, %IniFile%, Settings, CounterFont
-IniWrite, %CounterSize%, %IniFile%, Settings, CounterSize
-IniWrite, %CounterTitle%, %IniFile%, Settings, CounterTitle
-; Write the new color and transparency settings.
-IniWrite, %CounterFontColor%, %IniFile%, Settings, CounterFontColor
-IniWrite, %CounterBackColor%, %IniFile%, Settings, CounterBackColor
-IniWrite, %EnableTransparency%, %IniFile%, Settings, EnableTransparency
+; Write the new sound settings.
+IniWrite, %EnableSound%, %IniFile%, Settings, EnableSound
+IniWrite, %AlertSound%, %IniFile%, Settings, AlertSound
+; Write the new image filename.
+IniWrite, %AlertImage%, %IniFile%, Settings, AlertImage
+; Write the new image checkbox state.
+IniWrite, %EnableImageCheckbox%, %IniFile%, Settings, EnableImageCheckbox
+; Write the new message box transparency setting.
+IniWrite, %EnableMsgBoxTransparency%, %IniFile%, Settings, EnableMsgBoxTransparency
 
 ; The GUI has been closed, so we can now initialize the main script variables.
 StrokeCount := 0
@@ -273,17 +357,17 @@ if EnableCounter
     Gui, Add, Text, vStrokeCountText gRedrawCounterText, %CounterText% %StrokeCount%
     ; Removed fixed dimensions. The GuiSize label will handle resizing after creation.
     Gui, 2: Show, NoActivate, %CounterTitle%
-    
+
     ; Check the saved setting and apply the AlwaysOnTop property to the counter window.
     if EnableAlwaysOnTop
-{
-    Gui, 2: +AlwaysOnTop
-}
-else
-{
-    Gui, 2: -AlwaysOnTop
-}
-    
+    {
+        Gui, 2: +AlwaysOnTop
+    }
+    else
+    {
+        Gui, 2: -AlwaysOnTop
+    }
+
     ; Apply transparency if the setting is enabled.
     if EnableTransparency
     {
@@ -316,7 +400,7 @@ Gui, 1: Destroy
         ; Update the text control with the new stroke count.
         GuiControl, 2: , StrokeCountText, %CounterText% %StrokeCount%
     }
-    
+
     ; Check if the Stroke count is a multiple of the user-defined limit.
     if Mod(StrokeCount, StrokeLimit) == 0
     {
@@ -333,10 +417,61 @@ Gui, 1: Destroy
         ; Check if the "Enable Message Box" checkbox was checked.
         if EnableMsgBox
         {
-            MsgBox, Stroke count: %StrokeCount%`n`n%MyMessage%
+            ; Always use the custom GUI now to provide consistent behavior.
+            GoSub, ShowImageMsgBox
+        }
+
+        ; Check if the "Play a Sound" checkbox was checked.
+        if EnableSound
+        {
+            ; Play the sound file. The 'Wait' option prevents the script from trying to play
+            ; the same sound repeatedly if the hotkey is triggered in quick succession.
+            SoundPlay, %A_ScriptDir%\%AlertSound%, Wait
         }
     }
 
+return
+
+; --- CUSTOM IMAGE MESSAGE BOX GUI ---
+; This label creates a temporary GUI to show the image and message.
+ShowImageMsgBox:
+    ; Create a new GUI window that is not associated with GUI 1 or 2.
+    ; Added -Caption which is a shortcut for -Border -TitleBar
+    Gui, New, -Caption, Custom Alert
+
+    ; Use the new variable for the checkbox state.
+    if (EnableImageCheckbox && EnableMsgBoxTransparency)
+    {
+        ; Set the background color to a unique, less-jarring color and make it transparent.
+        ; This color (#000001) is a near-black that is less likely to show up
+        ; as a noticeable artifact than bright magenta.
+        Gui, Color, 000001
+        Gui, +LastFound
+        WinSet, TransColor, 000001
+        Gui, Add, Picture, +BackgroundTrans gCloseImageMsgBox, %A_ScriptDir%\%AlertImage%
+        ; This line is the key to creating a borderless pop-up.
+        ; You must click on the image itself to close it.
+        Gui, Show, , Stroke Counter Alert
+    }
+    else
+    {
+        ; Create the standard message box with an optional image and text.
+        Gui, Font, s10
+        Gui, Color, F0F0F0
+        Gui, Add, Text, , Stroke count: %StrokeCount%`n%MyMessage%
+        ; Check if the image checkbox is enabled AND the file exists before adding the picture control.
+        if EnableImageCheckbox && FileExist(A_ScriptDir . "\" . AlertImage)
+        {
+            Gui, Add, Picture, , %A_ScriptDir%\%AlertImage%
+        }
+        Gui, Add, Button, Default gCloseImageMsgBox, OK
+        Gui, Show, , Stroke Counter Alert
+    }
+return
+
+; This label handles the closing of the custom message box when the button is clicked or the image is clicked.
+CloseImageMsgBox:
+    Gui, Destroy
 return
 
 ; This is the label that runs when the Text control is clicked.
@@ -357,5 +492,5 @@ GoSub, RedrawCounterText
 return
 
 ; If the GUI is closed via the X button, this label runs and exits the script.
-GuiClose:
+1GuiClose:
 ExitApp
